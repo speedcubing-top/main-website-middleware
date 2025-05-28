@@ -1,37 +1,91 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const mysql = require('mysql2/promise');
+
 const app = express();
-const requireParameter = new Set(["/forceredirect", "/redirect", "/login"]);
 
-app.use((req, res, next) => {
-  let pathname = req.path;
-  const search = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
-  const host = req.headers.host;
+// server configuration
+const serverConfigData = fs.readFileSync('/opt/storage/server.json', 'utf-8');
+const serverConfig = JSON.parse(serverConfigData);
+const dbUser = serverConfig.database?.user || '';
+const dbPassword = serverConfig.database?.password || '';
+const domain = serverConfig.domain;
 
-  let redirectNeeded = false;
+// db
+const pool = mysql.createPool({
+  host: 'mariadb',
+  port: 3306,
+  user: dbUser,
+  password: dbPassword,
+  database: 'speedcubingsystem',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
-  if (host && host.startsWith('www.')) {
-    redirectNeeded = true;
+// configuration
+const configPath = '/app/middleware-config.json';
+let config = {};
+
+function loadConfig() {
+  try {
+    const data = fs.readFileSync(configPath, 'utf-8');
+    config = JSON.parse(data);
+    console.log('Config loaded:', config);
+  } catch (err) {
+    console.error('Failed to load config:', err);
+  }
+}
+
+loadConfig();
+
+fs.watchFile(configPath, (curr, prev) => {
+  console.log('Config file changed, reloading...');
+  loadConfig();
+});
+
+// app
+
+app.use(async (req, res, next) => {
+  const originalPath = req.path;
+  const originalHost = req.headers.host;
+  const originalParam = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
+  
+  let path = req.path;
+  let host = req.headers.host;
+  let param = originalParam;
+  
+  
+  const [rows] = await pool.query('SELECT target FROM web_redirect WHERE path = ?', [path.slice(1)]); 
+  if (rows.length > 0) {
+    const target = rows[0].target;
+    return res.redirect(301, target);
   }
 
-  if (pathname !== '/' && pathname.endsWith('/')) {
-    pathname = pathname.slice(0, -1);
-    redirectNeeded = true;
+  if (host && host === 'www.' + domain) {
+    host = domain;
   }
 
-  let newUrl = pathname;
-  if (search && requireParameter.has(pathname)) {
-    newUrl += search;
-  } else if (search && !requireParameter.has(pathname)) {
-    redirectNeeded = true;
+  if (path !== '/' && path.endsWith('/')) {
+    path = path.slice(0, -1);
   }
 
-  if (redirectNeeded) {
-    const redirectUrl = `https://speedcubing.top${newUrl}`;
-    console.log('Redirect:', redirectUrl);
-    return res.redirect(301, redirectUrl);
+  if (param && !(config.requireParameter?.[path])) {
+    param = '';
   }
 
-  res.sendStatus(404); // or res.end()
+  if (path !== originalPath || host !== originalHost || param !== originalParam) {
+	let redirectUrl = `https://${host}${path}`;
+	
+	if (param) {
+	  redirectUrl += ('?' + param);
+	}
+    
+	return res.redirect(301, redirectUrl);
+  }
+
+  res.sendStatus(404);
 });
 
 app.listen(4000, '0.0.0.0', () => {
