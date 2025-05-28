@@ -26,7 +26,7 @@ app.use((req, res, next) => {
   }
 
   if (redirectNeeded) {
-    const redirectUrl = `http://mc2:83${newUrl}`;
+    const redirectUrl = `https://speedcubing.top${newUrl}`;
     console.log('Redirect:', redirectUrl);
     return res.redirect(301, redirectUrl);
   }
