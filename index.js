@@ -1,6 +1,6 @@
 const express = require('express');
 const fs = require('fs');
-const path = require('path');
+const pathModule = require('path');
 const mysql = require('mysql2/promise');
 
 const app = express();
@@ -56,6 +56,17 @@ app.use(async (req, res, next) => {
   let host = req.headers.host;
   let param = originalParam;
   
+  // serve static file
+  for (const staticDir of config.static) {
+    const fullPath = pathModule.join(staticDir, decodeURIComponent(path));
+    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+	  if (req.query.dl === '1') {
+	    return res.download(fullPath);
+	  } else {
+        return res.sendFile(fullPath);
+	  }
+    }
+  }
   
   const [rows] = await pool.query('SELECT target FROM web_redirect WHERE path = ?', [path.slice(1)]); 
   if (rows.length > 0) {
