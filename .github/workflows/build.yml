@@ -31,10 +31,7 @@ jobs:
       run: npm ci
 
     - name: Build Docker image
-      run: docker build --progress=plain -t main-website-middleware .
-
-    - name: Tag Docker image
-      run: docker tag main-website-middleware "$REGISTRY_URL/main-website-middleware"
+      run: docker build --progress=plain -t "$REGISTRY_URL/main-website-middleware" .
 
     - name: Log in to Docker registry
       run: echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin
