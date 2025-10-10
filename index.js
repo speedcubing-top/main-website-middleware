@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const pathModule = require('path');
+const mime = require('mime');
 const mysql = require('mysql2/promise');
 
 const app = express();
@@ -60,11 +61,17 @@ app.use(async (req, res, next) => {
   for (const staticDir of config.static) {
     const fullPath = pathModule.join(staticDir, decodeURIComponent(path));
     if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-	  if (req.query.dl === '1') {
-	    return res.download(fullPath);
-	  } else {
-        return res.sendFile(fullPath);
-	  }
+      if (req.query.dl === '1') {
+        return res.download(fullPath);
+      } else {
+        const mimeType = mime.getType(fullPath) || 'application/octet-stream';
+        return res.sendFile(fullPath, {
+          headers: {
+            'Content-Type': mimeType,
+            'Content-Disposition': 'inline'
+          }
+        });
+      }
     }
   }
   
