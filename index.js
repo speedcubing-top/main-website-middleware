@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const pathModule = require('path');
-const mime = require('mime');
+const mime = require('mime-types');
 const mysql = require('mysql2/promise');
 
 const app = express();
@@ -64,7 +64,7 @@ app.use(async (req, res, next) => {
       if (req.query.dl === '1') {
         return res.download(fullPath);
       } else {
-        const mimeType = mime.getType(fullPath) || 'application/octet-stream';
+        const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
         return res.sendFile(fullPath, {
           headers: {
             'Content-Type': mimeType,
