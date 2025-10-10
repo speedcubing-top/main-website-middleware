@@ -46,36 +46,115 @@ fs.watchFile(configPath, (curr, prev) => {
   loadConfig();
 });
 
-// app
+function formatFileTime(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
+}
 
+function createFileInfo(stat, file) {
+
+  let displayName = file;
+
+  // Directory behavior
+  if (stat.isDirectory()) {
+    if (file.length < 50) {
+      displayName = file + "/";
+	  } else if (file.length == 50) {
+	    displayName = file
+    }
+  }
+
+  // ..>
+  if (file.length > 50) {
+    displayName = file.slice(0, 47) + '..>';
+  }
+
+  return {
+    name: displayName,
+	padding: ' '.repeat(50 - displayName.length),
+    time: formatFileTime(stat.mtime), 
+    size: (stat.isDirectory() ? '           -' : String(stat.size).padStart(12, ' '))
+  };
+}
+
+function renderFileList(res, folderPath, urlPath) {
+  const files = fs.readdirSync(folderPath);
+  const fileArr = [];
+
+  if (!/^\/[^/]+$/.test(urlPath)) {
+    const parent = pathModule.dirname(urlPath.endsWith('/') ? urlPath.slice(0, -1) : urlPath);
+    fileArr.push({path: parent === '.' ? '/' : parent + '/', info: {name: '../'}});
+  }
+
+  files.forEach(file => {
+    const fullPath = pathModule.join(folderPath, file);
+    const stat = fs.statSync(fullPath);
+
+    const info = createFileInfo(stat, file);
+
+    if (stat.isDirectory()) {
+      fileArr.push({path: pathModule.join(urlPath, file) + '/', info: info});
+    } else {
+      fileArr.push({path: pathModule.join(urlPath, file), info: info});
+    }
+  });
+
+  res.render('index.ejs', {
+	  currentPath : urlPath,
+	  fileArr: fileArr
+  })
+}
+
+// app
 app.use(async (req, res, next) => {
   const originalPath = req.path;
   const originalHost = req.headers.host;
   const originalParam = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
-  
-  let path = req.path;
-  let host = req.headers.host;
-  let param = originalParam;
+
+  const decodedPath = decodeURIComponent(originalPath);
   
   // serve static file
-  for (const staticDir of config.static) {
-    const fullPath = pathModule.join(staticDir, decodeURIComponent(path));
-    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-      if (req.query.dl === '1') {
-        return res.download(fullPath);
-      } else {
-        const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
-        return res.sendFile(fullPath, {
-          headers: {
-            'Content-Type': mimeType,
-            'Content-Disposition': 'inline'
-          }
-        });
-      }
+  if (originalPath != '/') {
+    for (const staticDir of config.static) {
+      const fullPath = pathModule.join(staticDir, decodedPath);
+	  if (!fs.existsSync(fullPath)) {
+        continue;
+	  }
+
+	  const file = fs.statSync(fullPath);
+
+      if (file.isFile()) {
+        if (req.query.dl === '1') {
+          return res.download(fullPath);
+        } else {
+          return res.sendFile(fullPath, {
+            headers: {
+              'Content-Type': (mime.lookup(fullPath) || 'application/octet-stream'),
+              'Content-Disposition': 'inline'
+            }
+          });
+        }
+      } else if (file.isDirectory()) {
+        return renderFileList(res, fullPath, decodedPath);
+	  }
     }
   }
   
-  const [rows] = await pool.query('SELECT target FROM web_redirect WHERE path = ?', [path.slice(1)]); 
+  let path = originalPath;
+  let host = req.headers.host;
+  let param = originalParam;
+  
+  let rows = [];
+  try {
+    [rows] = await pool.query('SELECT target FROM web_redirect WHERE path = ?', [path.slice(1)]);
+  } catch (err) {
+    console.error('MySQL query error:', err);
+  }
   if (rows.length > 0) {
     const target = rows[0].target;
     return res.redirect(301, target);

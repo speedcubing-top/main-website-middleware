@@ -1,0 +1,13 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252"><title>Index of <%- currentPath %></title></head>
+<body>
+<h1>Index of <%- currentPath %></h1><hr><pre>
+<% for (let i = 0; i < fileArr.length; i++) { -%>
+<% if (i === 0 && fileArr[i].info.name === '../') { -%>
+<a href="<%- fileArr[i].path %>"><%- fileArr[i].info.name %></a>
+<% } else { -%>
+<a href="<%- fileArr[i].path %>"><%- fileArr[i].info.name %></a><%- fileArr[i].info.padding %> <%- fileArr[i].info.time %><%- fileArr[i].info.size %>
+<% } -%>
+<% } -%></pre>
+</pre><hr>
+
+</body></html>
