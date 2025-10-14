@@ -1,40 +1,12 @@
-name: Build and Push Node.js Docker Image
+name: Build
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  schedule:
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
-    env:
-      REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
-      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '17'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Build Docker image
-      run: docker build --progress=plain -t "$REGISTRY_URL/main-website-middleware" .
-
-    - name: Log in to Docker registry
-      run: echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin
-
-    - name: Push Docker image
-      run: docker push "$REGISTRY_URL/main-website-middleware"
+    uses: ./.github/workflows/build-template.yml
+    with:
+      build_only: true
