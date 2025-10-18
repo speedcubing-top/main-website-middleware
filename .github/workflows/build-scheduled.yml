@@ -10,3 +10,5 @@ jobs:
     uses: ./.github/workflows/build-template.yml
     with:
       build_only: true
+    secrets:
+      REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
