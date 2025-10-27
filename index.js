@@ -82,14 +82,9 @@ function createFileInfo(stat, file) {
   };
 }
 
-function getFileList(folderPath, urlPath) {
+function getFileList(folderPath, targetPath) {
   const files = fs.readdirSync(folderPath);
   const fileArr = [];
-
-  if (!/^\/[^/]+$/.test(urlPath)) {
-    const parent = pathModule.dirname(urlPath.endsWith('/') ? urlPath.slice(0, -1) : urlPath);
-    fileArr.push({path: parent === '.' ? '/' : parent + '/', info: {name: '../'}});
-  }
 
   files.forEach(file => {
     const fullPath = pathModule.join(folderPath, file);
@@ -98,9 +93,9 @@ function getFileList(folderPath, urlPath) {
     const info = createFileInfo(stat, file);
 
     if (stat.isDirectory()) {
-      fileArr.push({path: pathModule.join(urlPath, file) + '/', info: info});
+      fileArr.push({path: pathModule.join(targetPath, file) + '/', info: info});
     } else {
-      fileArr.push({path: pathModule.join(urlPath, file), info: info});
+      fileArr.push({path: pathModule.join(targetPath, file), info: info});
     }
   });
 
@@ -161,6 +156,11 @@ app.use(async (req, res, next) => {
     }
 
 	if (shouldRenderFolder) {
+	  fileArr.sort((a, b) => a.info.name.localeCompare(b.info.name));
+      if (!/^\/[^/]+$/.test(targetPath)) {
+        const parent = pathModule.dirname(targetPath.endsWith('/') ? targetPath.slice(0, -1) : targetPath);
+        fileArr.unshift({path: parent === '.' ? '/' : parent + '/', info: {name: '../'}});
+      }
       return res.render('index.ejs', {
   	    currentPath : targetPath,
 	    fileArr: fileArr
