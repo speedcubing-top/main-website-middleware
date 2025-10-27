@@ -76,13 +76,13 @@ function createFileInfo(stat, file) {
 
   return {
     name: displayName,
-	padding: ' '.repeat(50 - displayName.length),
+	padding: ' '.repeat(Math.max(0, 50 - displayName.length)),
     time: formatFileTime(stat.mtime), 
     size: (stat.isDirectory() ? '           -' : String(stat.size).padStart(12, ' '))
   };
 }
 
-function renderFileList(res, folderPath, urlPath) {
+function getFileList(folderPath, urlPath) {
   const files = fs.readdirSync(folderPath);
   const fileArr = [];
 
@@ -104,10 +104,7 @@ function renderFileList(res, folderPath, urlPath) {
     }
   });
 
-  res.render('index.ejs', {
-	  currentPath : urlPath,
-	  fileArr: fileArr
-  })
+  return fileArr;
 }
 
 // app
@@ -115,17 +112,29 @@ app.use(async (req, res, next) => {
   const originalPath = req.path;
   const originalHost = req.headers.host;
   const originalParam = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
-
-  const decodedPath = decodeURIComponent(originalPath);
   
-  // serve static file
-  if (originalPath != '/') {
-	let targetPath = decodedPath; // the folder we wants to see
-	if (originalPath == '/index') {
+  // start serve static file
+  if (originalPath != '/') { // if query /, then skip
+
+	// the folder we wants to serve
+	let targetPath;
+    try {
+      targetPath = decodeURIComponent(originalPath);
+    } catch {
+      return res.sendStatus(404);
+    }
+
+	// if query /index, then we want to serve /
+	if (targetPath == '/index') {
 	  targetPath = '/'
 	}
 
+    let shouldRenderFolder = false;
+    const fileArr = []; // 
+
     for (const staticDir of config.static) {
+
+	  // 
       const fullPath = pathModule.join(staticDir, targetPath);
 	  if (!fs.existsSync(fullPath)) {
         continue;
@@ -145,18 +154,27 @@ app.use(async (req, res, next) => {
           });
         }
       } else if (file.isDirectory()) {
-        return renderFileList(res, fullPath, targetPath);
+		// we found an folder! needs to render folder now
+		shouldRenderFolder = true;
+        fileArr.push(...getFileList(fullPath, targetPath)); // get all the file info from fullPath
 	  }
     }
+
+	if (shouldRenderFolder) {
+      return res.render('index.ejs', {
+  	    currentPath : targetPath,
+	    fileArr: fileArr
+	  })
+	}
   }
   
-  let path = originalPath;
+  let reqPath = originalPath;
   let host = req.headers.host;
   let param = originalParam;
   
   let rows = [];
   try {
-    [rows] = await pool.query('SELECT target FROM web_redirect WHERE path = ?', [path.slice(1)]);
+    [rows] = await pool.query('SELECT target FROM web_redirect WHERE path = ?', [reqPath.slice(1)]);
   } catch (err) {
     console.error('MySQL query error:', err);
   }
@@ -169,16 +187,16 @@ app.use(async (req, res, next) => {
     host = domain;
   }
 
-  if (path !== '/' && path.endsWith('/')) {
-    path = path.slice(0, -1);
+  if (reqPath !== '/' && reqPath.endsWith('/')) {
+    reqPath = reqPath.slice(0, -1);
   }
 
-  if (param && !(config.requireParameter?.[path])) {
+  if (param && !(config.requireParameter?.[reqPath])) {
     param = '';
   }
 
-  if (path !== originalPath || host !== originalHost || param !== originalParam) {
-	let redirectUrl = `https://${host}${path}`;
+  if (reqPath !== originalPath || host !== originalHost || param !== originalParam) {
+	let redirectUrl = `https://${host}${reqPath}`;
 	
 	if (param) {
 	  redirectUrl += ('?' + param);
