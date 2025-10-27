@@ -145,7 +145,7 @@ app.use(async (req, res, next) => {
             headers: {
               'Content-Type': (mime.lookup(fullPath) || 'application/octet-stream'),
               'Content-Disposition': 'inline'
-            }
+            }, dotfiles: 'allow'
           });
         }
       } else if (file.isDirectory()) {
