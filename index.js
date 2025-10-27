@@ -120,8 +120,13 @@ app.use(async (req, res, next) => {
   
   // serve static file
   if (originalPath != '/') {
+	let targetPath = decodedPath; // the folder we wants to see
+	if (originalPath == '/index') {
+	  targetPath = '/'
+	}
+
     for (const staticDir of config.static) {
-      const fullPath = pathModule.join(staticDir, decodedPath);
+      const fullPath = pathModule.join(staticDir, targetPath);
 	  if (!fs.existsSync(fullPath)) {
         continue;
 	  }
@@ -140,7 +145,7 @@ app.use(async (req, res, next) => {
           });
         }
       } else if (file.isDirectory()) {
-        return renderFileList(res, fullPath, decodedPath);
+        return renderFileList(res, fullPath, targetPath);
 	  }
     }
   }
