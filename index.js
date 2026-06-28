@@ -209,6 +209,32 @@ app.use(async (req, res, next) => {
   res.sendStatus(404);
 });
 
-app.listen(4000, '0.0.0.0', () => {
+const server = app.listen(4000, '0.0.0.0', () => {
   console.log('Express middleware on http://0.0.0.0:4000');
 });
+
+async function shutdown(signal) {
+  console.log(`Received ${signal}, shutting down...`);
+
+  server.close(async () => {
+    console.log('HTTP server closed');
+
+    try {
+      await pool.end();
+      console.log('MySQL pool closed');
+    } catch (err) {
+      console.error('Failed to close MySQL pool:', err);
+    }
+
+    process.exit(0);
+  });
+
+  // force exit if connections hang
+  setTimeout(() => {
+    console.error('Force shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM')); // docker stop
+process.on('SIGINT', () => shutdown('SIGINT'));   // Ctrl+C
