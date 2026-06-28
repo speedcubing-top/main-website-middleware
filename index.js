@@ -9,13 +9,14 @@ const app = express();
 // server configuration
 const serverConfigData = fs.readFileSync('/opt/storage/server.json', 'utf-8');
 const serverConfig = JSON.parse(serverConfigData);
+const dbHost = serverConfig.database?.host || '';
 const dbUser = serverConfig.database?.user || '';
 const dbPassword = serverConfig.database?.password || '';
 const domain = serverConfig.domain;
 
 // db
 const pool = mysql.createPool({
-  host: 'mariadb',
+  host: dbHost,
   port: 3306,
   user: dbUser,
   password: dbPassword,
