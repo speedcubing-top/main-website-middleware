@@ -1,10 +1,10 @@
-FROM node:17-slim
+FROM node:24-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install --production
+RUN npm ci --omit=dev
 
 COPY . .
 
