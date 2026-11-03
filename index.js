@@ -105,6 +105,12 @@ function getFileList(folderPath, targetPath) {
 
 // app
 app.use(async (req, res, next) => {
+  // Next.js serves these itself and needs their query strings (e.g. ?slug= on /_next/data),
+  // so leave them for the frontend instead of redirecting them without the query.
+  if (req.path.startsWith('/_next/')) {
+    return res.sendStatus(404);
+  }
+
   const originalPath = req.path;
   const originalHost = req.headers.host;
   const originalParam = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
